@@ -1,3 +1,4 @@
 flask
-huggingface_hub
+flask-cors
+requests
 gunicorn
