@@ -1,35 +1,41 @@
+import os
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-import os
+import cohere
 
-app = Flask(__name__, static_folder='.')
+app = Flask(__name__)
 CORS(app)
 
-@app.route('/')
-def home():
+api_key = os.environ.get("COHERE_API_KEY")
+co_client = cohere.Client(api_key) if api_key else None
+
+@app.route("/")
+def index():
     return send_from_directory('.', 'index.html')
 
-@app.route('/chat', methods=['POST', 'OPTIONS'])
+@app.route("/chat", methods=["POST"])
 def chat():
-    if request.method == 'OPTIONS':
-        return '', 200
-    
     try:
-        data = request.get_json()
-        msg = data.get('message', '') if data else ''
+        data = request.get_json(force=True)
+        msg = data.get("message", "").strip()
         
         if not msg:
-            return jsonify({"reply": "Manda mensagem, papai!"}), 200
+            return jsonify({"reply": "Fala alguma coisa, tô te ouvindo :)"})
         
-        # RESPOSTA SIMPLES - DEPOIS LIGA COHERE
-        resposta = f"Eai papai Salvador! Você disse: {msg} - Lunisa tá ON! 🔥"
-        
-        return jsonify({"reply": resposta}), 200
+        if not co_client:
+            return jsonify({"reply": "Ainda tô sem chave, configura COHERE_API_KEY no Render!"})
+
+        res = co_client.chat(
+            message=msg,
+            model="command-r-plus",
+            preamble="És a Lunisa, assistente moçambicana fofa, carinhosa, inteligente e divertida, falas português de Moçambique. Respostas curtas e úteis. Criada pelo Salvador Baptista José João em Nampula."
+        )
+        return jsonify({"reply": res.text})
         
     except Exception as e:
-        print(f"Erro: {e}")
-        return jsonify({"reply": f"Opa, deu erro mas tô on: {str(e)}"}), 200
+        print("ERRO:", e)
+        return jsonify({"reply": f"Eita, deu um erro mas tô aqui contigo! Tenta de novo. Detalhe: {str(e)[:150]}"})
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host="0.0.0.0", port=port)
